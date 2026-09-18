@@ -96,7 +96,17 @@ public sealed partial class CollectionAssert
     {
         DebugEx.Assert(collection != null, "Collection is Null.");
 
-        var elementCounts = new Dictionary<T, int>(comparer);
+        // Size the dictionary up front when the element count is known to avoid repeated internal
+        // resizes/rehashes as elements are added. Falls back to the parameterless constructor when
+        // the count can't be determined cheaply (e.g. a plain IEnumerable<T>).
+        int capacity = collection switch
+        {
+            ICollection<T?> genericCollection => genericCollection.Count,
+            ICollection nonGenericCollection => nonGenericCollection.Count,
+            _ => 0,
+        };
+
+        var elementCounts = new Dictionary<T, int>(capacity, comparer);
         nullCount = 0;
 
         foreach (T? element in collection)
