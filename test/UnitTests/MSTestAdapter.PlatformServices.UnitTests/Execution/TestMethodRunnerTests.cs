@@ -516,6 +516,41 @@ public class TestMethodRunnerTests : TestContainer
         results[0].Outcome.Should().Be(UnitTestOutcome.Passed);
     }
 
+    public async Task RunTestMethodShouldPreferTestDataSourceGetDisplayNameOverComputeDefaultDisplayNameForFoldedDataDrivenTests()
+    {
+        // The folded (ITestDataSource) path must consult testDataSource.GetDisplayName first, and only
+        // fall back to TestDataSourceUtilities.ComputeDefaultDisplayName when it returns null. See
+        // ExecuteTestWithDataSourceAsync in TestMethodRunner.DataSource.cs.
+        CustomDisplayNameDataSourceAttribute dataSourceAttribute = new("CustomDisplayName");
+        var attributes = new Attribute[] { dataSourceAttribute };
+
+        _testablePlatformServiceProvider.MockReflectionOperations.Setup(ro => ro.GetCustomAttributes(_methodInfo)).Returns(attributes);
+
+        var testMethodInfo = new TestableTestMethodInfo(_methodInfo, _testClassInfo, _testMethodOptions, () => new TestResult());
+        var testMethodRunner = new TestMethodRunner(testMethodInfo, _testMethod, _testContextImplementation);
+
+        TestResult[] results = await testMethodRunner.RunTestMethodAsync();
+
+        results.Should().HaveCount(1);
+        results[0].DisplayName.Should().Be("CustomDisplayName");
+    }
+
+    public async Task RunTestMethodShouldFallBackToComputeDefaultDisplayNameWhenTestDataSourceGetDisplayNameReturnsNullForFoldedDataDrivenTests()
+    {
+        CustomDisplayNameDataSourceAttribute dataSourceAttribute = new(displayName: null);
+        var attributes = new Attribute[] { dataSourceAttribute };
+
+        _testablePlatformServiceProvider.MockReflectionOperations.Setup(ro => ro.GetCustomAttributes(_methodInfo)).Returns(attributes);
+
+        var testMethodInfo = new TestableTestMethodInfo(_methodInfo, _testClassInfo, _testMethodOptions, () => new TestResult());
+        var testMethodRunner = new TestMethodRunner(testMethodInfo, _testMethod, _testContextImplementation);
+
+        TestResult[] results = await testMethodRunner.RunTestMethodAsync();
+
+        results.Should().HaveCount(1);
+        results[0].DisplayName.Should().BeOneOf("dummyTestName (1)", "DummyTestMethod (1)");
+    }
+
     public async Task RunTestMethodShouldUseFreshTestContextPerIterationForFoldedDataDrivenTests()
     {
         // Capture TestContext.Current per iteration so we can verify each row gets a distinct
@@ -780,6 +815,19 @@ public class TestMethodRunnerTests : TestContainer
         public void TestMethod(int x)
         {
         }
+    }
+
+    /// <summary>
+    /// A minimal <see cref="ITestDataSource"/> whose <c>GetDisplayName</c> either returns a fixed custom
+    /// name, or <see langword="null"/> to exercise the fallback to
+    /// <c>TestDataSourceUtilities.ComputeDefaultDisplayName</c>, depending on the constructor argument.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method)]
+    private sealed class CustomDisplayNameDataSourceAttribute(string? displayName) : Attribute, Microsoft.VisualStudio.TestTools.UnitTesting.ITestDataSource
+    {
+        public IEnumerable<object?[]> GetData(MethodInfo methodInfo) => [[1]];
+
+        public string? GetDisplayName(MethodInfo methodInfo, object?[]? data) => displayName;
     }
 
     #endregion
