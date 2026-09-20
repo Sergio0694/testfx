@@ -243,7 +243,12 @@ public sealed partial class CollectionAssert
         Assert.CheckParameterNotNull(collection, "CollectionAssert.AllItemsAreUnique", "collection");
 
         bool foundNull = false;
+#if NETCOREAPP3_1_OR_GREATER
+        // Pre-size the set from the known collection count to avoid repeated internal resizes/rehashes.
+        var table = new HashSet<object>(collection.Count);
+#else
         HashSet<object> table = [];
+#endif
         foreach (object? current in collection)
         {
             if (current == null)
