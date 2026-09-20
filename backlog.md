@@ -16,10 +16,26 @@
   `GetDisplayName`. Added a minimal private `CustomDisplayNameDataSourceAttribute : ITestDataSource`
   test double. PR branch: test-assist/test-method-runner-display-name-precedence.
 
+- 2026-09-20: Added `CombinatorialValuesUtilitiesTests.cs` (4 tests) covering
+  `CombinatorialValuesUtilities.GetValuesFor` branches not reached by existing
+  `CombinatorialDataAttributeTests`: null-parameter guard, nullable-enum recursive inference
+  (`Nullable.GetUnderlyingType` branch), nullable-unsupported-type exception message, and explicit
+  `ICombinatorialValuesProvider` precedence over an otherwise-inferrable `bool` type. PR branch:
+  test-assist/combinatorial-values-utilities-tests. 1570 passed (up from 1566 baseline) on
+  TestFramework.UnitTests net9.0.
+
 ## Backlog / opportunities not yet actioned
 - `src/TestFramework/TestFramework/Internal/StringEx.cs` — reviewed 2026-09-19: these are trivial
   one-line pass-throughs around `string.IsNullOrEmpty`/`string.IsNullOrWhiteSpace`. NOT pursuing —
   no meaningful logic to test (see "What NOT to Test" guideline). Remove from backlog.
+- `src/TestFramework/TestFramework/Internal/ApplicationStateGuard.cs` and
+  `src/TestFramework/TestFramework/Internal/ReflectionTestMethodInfo.cs` reviewed 2026-09-20: mostly
+  thin pass-throughs/wrappers around reflection `MethodInfo` members; `ReflectionTestMethodInfo` is
+  already indirectly exercised via `TestDataSourceUtilitiesTests` (DisplayName usage) and
+  `GetParameters()` caching behavior is covered there too. Not pursuing further — low marginal value.
+  `ApplicationStateGuard.Unreachable` is a trivial exception-message formatter; not worth a dedicated
+  test. `TelemetryCollector` and `IEnvironment`/`EnvironmentWrapper`/`CIEnvironmentDetector` already
+  have adequate existing test coverage (`TelemetryCollectorTests.cs`, `CIEnvironmentDetectorTests.cs`).
 - Review `src/Analyzers/MSTest.Analyzers` C# rule test coverage gaps (VB.NET tests are explicitly OUT OF
   SCOPE per repo-specific constraint — do not propose VB tests for analyzers).
 - No coverage tooling was run this session (time-boxed); consider running the existing coverage pipeline
@@ -35,5 +51,17 @@
 - Last task 2 (opportunity discovery) scan: searched for files changed in 60 days (repo only has 1 commit
   of history available in this shallow clone — history-based "bug-prone area" heuristic is NOT usable here;
   rely on architecture/complexity reading instead).
-- Next run: consider Task 6 (test infrastructure) or Task 4 (check on PR #8 and the new display-name-
-  precedence PR for CI status / maintainer feedback).
+- 2026-09-20: Systematically reviewed all files in `src/TestFramework/TestFramework/Internal/` for
+  untested/undertested internal utilities. Remaining files in that folder (`StringEx`,
+  `ApplicationStateGuard`, `ReflectionTestMethodInfo`, `TelemetryCollector`, `IEnvironment`,
+  `TestDataSourceUtilities`, `CombinatorialValuesUtilities`, `DebugEx`, `DebuggerLaunchMode`) are now
+  all either trivial (not worth testing), already well-covered, or covered by this run's/prior runs'
+  PRs. Next opportunity scan should look at `src/TestFramework/TestFramework/Attributes/` (analyzers
+  reviewed for C#-only scope) or `src/Adapter/` for untested internal logic.
+- Next run: consider Task 4 (check on PR #8, #10, and the new combinatorial-values-utilities-tests PR
+  for CI status / maintainer feedback) or Task 6 (test infrastructure).
+
+## Monthly Activity Summary tracking
+- Created `[test-improver] Monthly Activity 2026-09` issue on 2026-09-20 (no prior monthly issue existed
+  in the repo). Listed PRs #8, #10, and the new combinatorial-values-utilities-tests PR as pending
+  maintainer review actions.
