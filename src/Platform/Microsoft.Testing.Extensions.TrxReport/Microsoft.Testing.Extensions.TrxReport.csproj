@@ -89,6 +89,7 @@ $(CommonProductDescription)]]></PackageDescription>
   <ItemGroup>
     <InternalsVisibleTo Include="Microsoft.Testing.Extensions.UnitTests" Key="$(VsPublicKey)" />
     <InternalsVisibleTo Include="Microsoft.Testing.Extensions.VSTestBridge" Key="$(VsPublicKey)" />
+    <InternalsVisibleTo Include="MSTest.Performance.Benchmarks" Key="$(VsPublicKey)" />
   </ItemGroup>
 
   <ItemGroup>
