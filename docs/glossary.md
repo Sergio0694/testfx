@@ -174,6 +174,10 @@ When using [MSTest.Sdk](#mstestsdk), opt in with `<EnableMicrosoftTestingExtensi
 
 An MTP extension (`Microsoft.Testing.Extensions.HangDump`) that captures a process memory dump when a test exceeds a configured timeout. Helps diagnose deadlocks, infinite loops, or unexpectedly slow tests.
 
+### HotReload
+
+An MTP extension (`Microsoft.Testing.Extensions.HotReload`) that enables .NET Hot Reload support for a running test host, letting code changes be applied to a test project without restarting the test host process. This shortens the inner loop between editing test or production code and re-running tests. Currently supported in console mode only (not yet in Visual Studio/VS Code Test Explorer). When using [MSTest.Sdk](#mstestsdk), opt in with `<EnableMicrosoftTestingExtensionsHotReload>true</EnableMicrosoftTestingExtensionsHotReload>`; the extension is enabled automatically by the `AllMicrosoft` profile. It is not supported in NativeAOT mode (MSTest.Sdk emits a build warning) or VSTest mode.
+
 ### HtmlReport
 
 An MTP extension (`Microsoft.Testing.Extensions.HtmlReport`) that generates a self-contained HTML test report at the end of a test session. The report inlines all CSS, JavaScript, and test data into a single `.html` file with no external dependencies, making it suitable for archiving as a CI artifact, attaching to PR comments, or sharing by email. Features include failed-test-first ordering, free-text search, sort/filter by outcome or duration, an expandable per-test detail panel (error message, stack trace, stdout/stderr), and automatic light/dark theme following the system preference. Pagination keeps the report usable for very large test runs. Currently **experimental** — CLI option, layout, and on-disk format may change without notice. Enable via the `--report-html` CLI option.
