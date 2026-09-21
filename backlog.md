@@ -47,6 +47,19 @@
   path (no `ComputeDefaultDisplayName` involved), already implicitly covered by existing `DataRow`-based
   tests. No further action needed there.
 
+- 2026-09-21: Added `ManagedNameParserTests.cs` (12 tests) for
+  `src/Adapter/MSTestAdapter.PlatformServices/Helpers/ManagedNameParser.cs` — a non-trivial
+  recursive-descent parser (RFC 0017 managed-name grammar: method name/arity, F#-style quoted
+  names, nested generic `<...>` and array `[...]` parameter brackets, several
+  `InvalidManagedNameException` error paths) that previously had zero direct unit tests (only
+  incidental exercise via `TrimAndAotAssertions.cs` acceptance test). PR branch:
+  test-assist/managed-name-parser-tests. 1100 passed (up from 1088 baseline, +12) on
+  MSTestAdapter.PlatformServices.UnitTests net9.0; 24 pre-existing unrelated failures unchanged.
+  `ManagedNameHelper` itself (the caller, doing reflection-based name generation/lookup) still has
+  no direct unit tests — candidate for a future run, though it's more entangled with live
+  reflection (MethodBase/Type) than the pure-string ManagedNameParser, so tests would need real
+  types/methods as fixtures rather than pure string-in/string-out cases.
+
 ## Cursor
 - Last task 2 (opportunity discovery) scan: searched for files changed in 60 days (repo only has 1 commit
   of history available in this shallow clone — history-based "bug-prone area" heuristic is NOT usable here;
@@ -58,10 +71,21 @@
   all either trivial (not worth testing), already well-covered, or covered by this run's/prior runs'
   PRs. Next opportunity scan should look at `src/TestFramework/TestFramework/Attributes/` (analyzers
   reviewed for C#-only scope) or `src/Adapter/` for untested internal logic.
-- Next run: consider Task 4 (check on PR #8, #10, and the new combinatorial-values-utilities-tests PR
-  for CI status / maintainer feedback) or Task 6 (test infrastructure).
+- Next run: consider Task 4 (check on PR #8, #10, #13, and the new managed-name-parser-tests PR
+  for CI status / maintainer feedback — as of 2026-09-21 all four had no CI checks reported yet,
+  `pending`/0 statuses) or Task 6 (test infrastructure). Next opportunity scan candidates:
+  `ManagedNameHelper` (see note above), `src/Adapter/MSTestAdapter.PlatformServices/Helpers/`
+  remaining untested files (`ReflectHelper.cs`, `ManagedNameHelper.cs`), or
+  `src/Adapter/MSTestAdapter.PlatformServices/Utilities/` (`AssemblyUtility.cs`,
+  `RandomIntPermutation.cs`, `SequentialIntPermutation.cs` have no dedicated test files either).
 
 ## Monthly Activity Summary tracking
 - Created `[test-improver] Monthly Activity 2026-09` issue on 2026-09-20 (no prior monthly issue existed
   in the repo). Listed PRs #8, #10, and the new combinatorial-values-utilities-tests PR as pending
   maintainer review actions.
+- 2026-09-21: Re-checked for an open Monthly Activity issue — none found (search returned 0 results;
+  the 2026-09-20 create_issue call may not have landed, or repo issue history is not queryable from
+  this environment). Re-created `[test-improver] Monthly Activity 2026-09` issue with updated Run
+  History (2026-09-18 through 2026-09-21) and Suggested Actions listing PRs #8, #10, #13, and the new
+  managed-name-parser-tests PR. If a duplicate monthly issue turns out to exist, close the older one on
+  the next run and keep only the most recent.
