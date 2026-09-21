@@ -134,7 +134,11 @@ public sealed partial class Assert
         List<T> snapshot = collection is List<T> list ? list : [.. collection];
 
 #pragma warning disable IDE0028 // Collection initialization can be simplified - target-typed `new` cannot pass the comparer in the same syntactic form expected.
+#if NETCOREAPP3_1_OR_GREATER
+        var seen = new HashSet<T>(snapshot.Count, comparer);
+#else
         var seen = new HashSet<T>(comparer);
+#endif
 #pragma warning restore IDE0028
 
         bool seenNull = false;
