@@ -24,6 +24,21 @@
   test-assist/combinatorial-values-utilities-tests. 1570 passed (up from 1566 baseline) on
   TestFramework.UnitTests net9.0.
 
+- 2026-09-22: Added `ManagedNameHelperTests.cs` (19 tests) for
+  `src/Adapter/MSTestAdapter.PlatformServices/Helpers/ManagedNameHelper.cs` — a shipped internal API
+  (`GetManagedNameAndHierarchy`, `GetMethod`, `ParseEscapedString`, all in `InternalAPI.Shipped.txt`)
+  used by discovery/execution for the VSTest RFC-0017 managed name format, previously had zero direct
+  unit tests (only incidental exercise via `TrimAndAotAssertions.cs`). Covers: null-arg guard, simple
+  method (no parens for zero-arg), parameter-type/array-type formatting, generic-method arity, closed
+  generic declaring type stripped to open generic definition, no-namespace hierarchy branch (separate
+  file for the no-namespace fixture type since file-scoped namespace covers the whole file), `GetMethod`
+  round-trips against 3 method shapes plus 3 `InvalidManagedNameException` paths, and `ParseEscapedString`
+  passthrough/quoted/escaped-quote-backslash/unicode-escape plus 2 exception paths. PR branch:
+  test-assist/managed-name-helper-tests. MSTestAdapter.PlatformServices.UnitTests net9.0 went from
+  1088/1112 passed to 1105/1129 passed (24 pre-existing unrelated Windows-path failures unchanged).
+  Nested fixture types mean `ClassIndex` hierarchy value is `ManagedNameHelperTests+SampleClass` (not a
+  bare class name) — asserted correctly, learned this the hard way via first test-run failure.
+
 ## Backlog / opportunities not yet actioned
 - `src/TestFramework/TestFramework/Internal/StringEx.cs` — reviewed 2026-09-19: these are trivial
   one-line pass-throughs around `string.IsNullOrEmpty`/`string.IsNullOrWhiteSpace`. NOT pursuing —
@@ -61,31 +76,19 @@
   types/methods as fixtures rather than pure string-in/string-out cases.
 
 ## Cursor
-- Last task 2 (opportunity discovery) scan: searched for files changed in 60 days (repo only has 1 commit
-  of history available in this shallow clone — history-based "bug-prone area" heuristic is NOT usable here;
-  rely on architecture/complexity reading instead).
-- 2026-09-20: Systematically reviewed all files in `src/TestFramework/TestFramework/Internal/` for
-  untested/undertested internal utilities. Remaining files in that folder (`StringEx`,
-  `ApplicationStateGuard`, `ReflectionTestMethodInfo`, `TelemetryCollector`, `IEnvironment`,
-  `TestDataSourceUtilities`, `CombinatorialValuesUtilities`, `DebugEx`, `DebuggerLaunchMode`) are now
-  all either trivial (not worth testing), already well-covered, or covered by this run's/prior runs'
-  PRs. Next opportunity scan should look at `src/TestFramework/TestFramework/Attributes/` (analyzers
-  reviewed for C#-only scope) or `src/Adapter/` for untested internal logic.
-- Next run: consider Task 4 (check on PR #8, #10, #13, and the new managed-name-parser-tests PR
-  for CI status / maintainer feedback — as of 2026-09-21 all four had no CI checks reported yet,
-  `pending`/0 statuses) or Task 6 (test infrastructure). Next opportunity scan candidates:
-  `ManagedNameHelper` (see note above), `src/Adapter/MSTestAdapter.PlatformServices/Helpers/`
-  remaining untested files (`ReflectHelper.cs`, `ManagedNameHelper.cs`), or
-  `src/Adapter/MSTestAdapter.PlatformServices/Utilities/` (`AssemblyUtility.cs`,
-  `RandomIntPermutation.cs`, `SequentialIntPermutation.cs` have no dedicated test files either).
+- 2026-09-22: `ManagedNameHelper` now covered (see Completed). Remaining candidates in
+  `src/Adapter/MSTestAdapter.PlatformServices/Helpers/` and `Utilities/`: `ReflectHelper.cs`,
+  `AssemblyUtility.cs` (no dedicated test file). `RandomIntPermutation.cs`/`SequentialIntPermutation.cs`
+  are wrapped in `#if NETFRAMEWORK` — cannot be built/tested on a net9.0-only Linux run; would need a
+  net462 leg (Windows) to exercise directly, or a `#if` review to see if worth conditionally testing.
+  Next opportunity scan: `ReflectHelper.cs`, `AssemblyUtility.cs`, or move to Task 4/6 (PR maintenance /
+  test infrastructure) since the low-hanging internal-utility backlog in this area is getting thin.
 
 ## Monthly Activity Summary tracking
-- Created `[test-improver] Monthly Activity 2026-09` issue on 2026-09-20 (no prior monthly issue existed
-  in the repo). Listed PRs #8, #10, and the new combinatorial-values-utilities-tests PR as pending
-  maintainer review actions.
-- 2026-09-21: Re-checked for an open Monthly Activity issue — none found (search returned 0 results;
-  the 2026-09-20 create_issue call may not have landed, or repo issue history is not queryable from
-  this environment). Re-created `[test-improver] Monthly Activity 2026-09` issue with updated Run
-  History (2026-09-18 through 2026-09-21) and Suggested Actions listing PRs #8, #10, #13, and the new
-  managed-name-parser-tests PR. If a duplicate monthly issue turns out to exist, close the older one on
-  the next run and keep only the most recent.
+- 2026-09-22: Re-searched for open `[test-improver] Monthly Activity` issue — search_issues again
+  returned 0 results (consistent with 2026-09-21 finding; either the issue creation isn't reliably
+  landing/indexed, or this environment's search can't see issues created via safe-outputs in the same
+  or a prior run). Created a new `[test-improver] Monthly Activity 2026-09` issue with Run History
+  covering 2026-09-18 through 2026-09-22 and Suggested Actions listing PRs #8, #10, #13, #17, and the
+  new ManagedNameHelper tests PR. IMPORTANT for next run: search for this issue by title fragment before
+  assuming none exists — if duplicates are ever found, close all but the most recent and note it here.
