@@ -50,6 +50,35 @@
   1792.3us/2409.14KB (5.59x alloc ratio, cheaper than Concatenate-large because it folds matching test
   identities into one row instead of concatenating every row).
 
+## Run 2026-09-22
+- Investigated `RetryArgumentsBuilder.BuildAttemptArgumentsAsync` (src/Platform/Microsoft.Testing.Extensions.Retry):
+  the two `indexToCleanup.Contains(i)` loops looked like a classic O(n*m) List-lookup pattern (candidate for
+  HashSet<int>). Built a standalone microbenchmark (System.Runtime, `dotnet run -c Release`, realistic sizes:
+  executableArguments.Length 10-100, indexToCleanup 2-10 entries, 500k iterations) comparing List.Contains vs.
+  building+using a HashSet<int> per call. Result: HashSet was *slower* at every realistic size (ratio
+  list/hashset 0.46x-0.85x, i.e. HashSet took 1.2x-2.2x longer) because this method runs once per retry attempt
+  with only a handful of cleanup indices — HashSet construction overhead dominates over such tiny N. Reverted
+  the change; not pursued. Lesson for future runs: always microbenchmark with the *actual* call-site problem
+  size before assuming HashSet/Dictionary beats List for small N — the crossover point for List.Contains vs.
+  HashSet.Contains in this repo's typical CLI-argument-sized collections (rarely >100 elements) is well above
+  what most command-line-argument-processing code here handles per call.
+- Reviewed DependsOnShouldBeValidAnalyzer.AnalyzeNamedType/EnumerateEffectiveMethods/HasDuplicateSignature again:
+  each SymbolAction callback already scopes its own type-hierarchy walk (bounded by inheritance depth, not
+  compilation size), and the walk itself already uses HashSet-based signature/overridden-method dedup. No
+  additional caching opportunity found without changing correctness-sensitive AnalysisSymbols plumbing across
+  callback invocations (Roslyn analyzers don't get a natural safe per-compilation cache without a
+  ConcurrentDictionary keyed by symbol, which adds contention risk for a rarely-hot path). Leaving open as a
+  LOW priority item, deprioritized further given no incoming issue/PR pressure on this analyzer's performance.
+- No other new HIGH/MEDIUM opportunities found this run after scanning: ServiceProvider._services (List, but
+  bounded by extension count, tiny), PropertyBag (already extensively optimized, confirmed no regression
+  candidates), CiCoverageSummary (LINQ-heavy but runs once per test session, not hot), AzureDevOpsSummaryReporter
+  detailedFailures.Contains (bounded by failureDetailLimit, typically small).
+- Repo currently has zero GitHub issues (fresh fork state - only PRs exist, mostly opened by prior
+  efficiency-improver/perf-improver/test-improver runs). No efficiency-tagged issues to comment on this run.
+- All 4 open efficiency-improver PRs (#7, #9, #12, #16) still show CI status "pending" with 0 reported statuses
+  (checked via pull_request_read get_status) — consistent with previous runs' notes that this is
+  infra/CI-configuration related, not a code problem. Did not push changes to them this run.
+
 ## Backlog cursor
 Next run: continue Task 2 scan (Adapter TestMethodRunner/TypeCache/AssemblyEnumerator + Platform
 TerminalTestReporter formatting/AnsiTerminalTestProgressFrame were reviewed and found already heavily
