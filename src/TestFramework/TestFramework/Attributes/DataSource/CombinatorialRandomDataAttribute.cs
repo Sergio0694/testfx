@@ -79,7 +79,11 @@ public sealed class CombinatorialRandomDataAttribute : Attribute, ICombinatorial
     {
         long maxPossibleValues = (long)Maximum - Minimum + 1;
         Random random = Seed != NoSeed ? new Random(Seed) : new Random();
+#if NETCOREAPP3_1_OR_GREATER
+        var selectedOffsets = new HashSet<long>(Count);
+#else
         var selectedOffsets = new HashSet<long>();
+#endif
         object[] values = new object[Count];
         byte[] randomBytes = new byte[sizeof(uint)];
         int index = 0;
