@@ -22,4 +22,12 @@
   24 failures in `Deployment/TestRunDirectoriesTests.cs` and related deployment tests — all due to
   hard-coded Windows-style paths (`C:\temp\...`) compared against `Path.Combine` producing `/`-separated
   paths on Linux. Not caused by any test-improver change; safe to ignore when diffing pass/fail counts on
-  this platform (baseline: 1088 passed / 24 failed / 1112 total as of 2026-09-19).
+  this platform (baseline: 1088 passed / 24 failed / 1112 total as of 2026-09-19; 1098 passed / 24 failed
+  / 1122 total as of 2026-09-23, after 3 more test-improver PRs added tests).
+- For assembly-level attribute testing (e.g. `ReflectHelper`'s `GetParallelizeAttribute`,
+  `HasDiscoverInternalsAttribute`, etc.), `AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(...),
+  AssemblyBuilderAccess.Run)` + `CustomAttributeBuilder` + `assemblyBuilder.SetCustomAttribute(...)` lets
+  a test construct a minimal in-memory assembly with exactly one attribute, avoiding shared test-assembly
+  attribute pollution. Same pattern already used in `TypeCacheTestFilterProviderTests.cs`. Works
+  identically on `#if NETFRAMEWORK` (via `AppDomain.CurrentDomain.DefineDynamicAssembly`) and modern TFMs
+  (via the static `AssemblyBuilder.DefineDynamicAssembly`).

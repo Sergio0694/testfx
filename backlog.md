@@ -75,20 +75,38 @@
   reflection (MethodBase/Type) than the pure-string ManagedNameParser, so tests would need real
   types/methods as fixtures rather than pure string-in/string-out cases.
 
+- 2026-09-23: Added `ReflectHelperTests.cs` (12 tests) for
+  `src/Adapter/MSTestAdapter.PlatformServices/Helpers/ReflectHelper.cs` — 6 shipped internal static
+  helpers (`GetParallelizeAttribute`, `HasDiscoverInternalsAttribute`, `GetTestDataSourceDiscoveryOption`,
+  `GetTestDataSourceOptions`, `IsDoNotParallelizeSet`, `MatchReturnType`) previously had zero direct unit
+  tests, only incidental exercise via `AssemblyEnumerator`. Used `AssemblyBuilder.DefineDynamicAssembly`
+  (same pattern as `TypeCacheTestFilterProviderTests.cs`) to construct minimal in-memory assemblies with/
+  without the target attribute, covering both "absent" and "present with a specific value" branches for
+  each. PR branch: test-assist/reflect-helper-tests. `MSTestAdapter.PlatformServices.UnitTests` net9.0:
+  1,122 total / 1,098 passed / 24 failed (pre-existing, unrelated). All 12 new tests passed.
+
 ## Cursor
-- 2026-09-22: `ManagedNameHelper` now covered (see Completed). Remaining candidates in
-  `src/Adapter/MSTestAdapter.PlatformServices/Helpers/` and `Utilities/`: `ReflectHelper.cs`,
-  `AssemblyUtility.cs` (no dedicated test file). `RandomIntPermutation.cs`/`SequentialIntPermutation.cs`
-  are wrapped in `#if NETFRAMEWORK` — cannot be built/tested on a net9.0-only Linux run; would need a
-  net462 leg (Windows) to exercise directly, or a `#if` review to see if worth conditionally testing.
-  Next opportunity scan: `ReflectHelper.cs`, `AssemblyUtility.cs`, or move to Task 4/6 (PR maintenance /
-  test infrastructure) since the low-hanging internal-utility backlog in this area is getting thin.
+- 2026-09-23: `ReflectHelper` static assembly-level helpers now covered (see Completed). Remaining
+  candidates in `src/Adapter/MSTestAdapter.PlatformServices/Helpers/` and `Utilities/`:
+  `AssemblyUtility.cs` — only `IsAssemblyExtension` is testable on Linux (small case-insensitive
+  extension-matching method); the rest (`IsAssembly`, `GetSatelliteAssemblies`,
+  `GetFullPathToDependentAssemblies`) is `#if NETFRAMEWORK`-gated AppDomain machinery needing a Windows
+  leg. `RandomIntPermutation.cs`/`SequentialIntPermutation.cs` are wrapped in `#if NETFRAMEWORK` too —
+  same Windows-only limitation. The low-hanging internal-utility backlog testable on Linux net9.0 is now
+  quite thin; next run should consider Task 4 (PR maintenance — 6 open test-improver PRs awaiting
+  review/merge) or Task 6 (test infrastructure) before further scanning for individual untested internal
+  utilities.
 
 ## Monthly Activity Summary tracking
-- 2026-09-22: Re-searched for open `[test-improver] Monthly Activity` issue — search_issues again
-  returned 0 results (consistent with 2026-09-21 finding; either the issue creation isn't reliably
-  landing/indexed, or this environment's search can't see issues created via safe-outputs in the same
-  or a prior run). Created a new `[test-improver] Monthly Activity 2026-09` issue with Run History
-  covering 2026-09-18 through 2026-09-22 and Suggested Actions listing PRs #8, #10, #13, #17, and the
-  new ManagedNameHelper tests PR. IMPORTANT for next run: search for this issue by title fragment before
-  assuming none exists — if duplicates are ever found, close all but the most recent and note it here.
+- 2026-09-23: Again searched for open `[test-improver] Monthly Activity` issue (list_issues with
+  label:testing, state:OPEN) — 0 results, same as every prior run this month. Created a new
+  `[test-improver] Monthly Activity 2026-09` issue with full Run History 2026-09-18 → 2026-09-23 and
+  Suggested Actions listing PRs #8, #10, #13, #17, #19, and the new ReflectHelperTests PR
+  (test-assist/reflect-helper-tests). STRONG SUSPICION: each run's `create_issue` safe-output call is
+  landing as a *new* issue every time (not being found/updated) — likely because the safe-outputs
+  handler processes issues asynchronously after the workflow session ends, so this session's read-only
+  GitHub queries can never see issues created by earlier runs. If a maintainer reports multiple
+  `[test-improver] Monthly Activity 2026-09` issues piling up, that confirms this theory — the fix would
+  be to track the issue number in memory directly (once known from a safe-output response or maintainer
+  comment) rather than relying on search. Next run: check whether maintainer closed/consolidated any
+  duplicates and note the surviving issue number here if mentioned.
