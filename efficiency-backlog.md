@@ -79,18 +79,52 @@
   (checked via pull_request_read get_status) — consistent with previous runs' notes that this is
   infra/CI-configuration related, not a code problem. Did not push changes to them this run.
 
-## Backlog cursor
-Next run: continue Task 2 scan (Adapter TestMethodRunner/TypeCache/AssemblyEnumerator + Platform
-TerminalTestReporter formatting/AnsiTerminalTestProgressFrame were reviewed and found already heavily
-optimized — no action taken; not re-reviewed since). Remaining unreviewed areas: ServerMode JsonRpc
-Jsonite JSON reader/writer (vendored third-party-style code, explicitly flagged in
-SerializerUtilities.cs comment as "known to suffer boxing/unboxing, to be rewritten with
-System.Text.Json" — do not attempt incremental fixes here, it's a planned rewrite) and
-DependsOnShouldBeValidAnalyzer caching (still not attempted, still flagged high-risk for analyzer
-correctness). Task 6 follow-up candidates: TrxReportEngine merge benchmark still missing (JUnitReportMerger
-and HtmlReportMerger now both covered) — TrxReportEngine.Merge.* files are the next Task 6 target.
-PRs #6, #7, #9, #11 (perf-improver + efficiency-improver, all draft) still open with CI in "pending/unstable"
-state as of this run (likely infra, not code) — re-check next run before assuming they need fixes.
+## Run 2026-09-23
+- Task 6 (measurement infrastructure): Added `CtrfReportMergerBenchmarks` to
+  test/Performance/MSTest.Performance.Benchmarks covering Merge(Concatenate) small (2x10)/large (5x200)
+  and Merge(CollapseRetryAttempts) (3 reports x 200 shared-identity tests). Required InternalsVisibleTo
+  for MSTest.Performance.Benchmarks in Microsoft.Testing.Extensions.CtrfReport.csproj + ProjectReference
+  (same pattern as JUnit/HTML/TRX merger benchmarks — CtrfReportMerger is a 4th JSON-based merge engine
+  that had zero benchmark coverage until now). PR: efficiency/ctrf-report-merger-benchmark. Baseline
+  numbers (--job short, informational): Merge_SmallReport 52.44us/71.05KB, Merge_LargeReport
+  2384.91us/2766.31KB (38.94x alloc ratio), Merge_LargeReport_CollapseRetryAttempts
+  1904.07us/2410.15KB (33.92x alloc ratio — cheaper than Concatenate-large because it folds 1000 rows
+  down to 200 final rows despite each carrying extra retryAttempts[] history). Full ./build.sh (Debug)
+  ran clean (0 warnings/errors) confirming the new IVT entry doesn't break anything; format check on the
+  new file was clean.
+- Task 2 scan this run: reviewed Contains()-in-loop patterns across ~15 more Platform/Extensions files
+  (TreeNodeFilter, ArtifactPostProcessingManager/DispatcherTool, CommandLineOptionsValidator
+  Registration/UnknownAndBootstrap, CommonTestHost/TestHostControllersTestHost disposal,
+  GitHubActionsSummaryArtifactPostProcessor, AzureDevOpsSummaryReporter.Markdown,
+  RetryOrchestrator/RetryArtifactProcessor, CtrfReportEngine.InProcessRetries, FrameworkHandlerAdapter).
+  All are already HashSet/Dictionary-based or operate on small/bounded collections (CLI option counts,
+  active service lists, failureDetailLimit-bounded arrays). No new O(n^2) opportunities found — this
+  codebase's Contains()-in-loop instances are consistently either already deduped via HashSet or
+  genuinely small-N (confirms the general pattern noted in the 2026-09-22 run's RetryArgumentsBuilder
+  finding: small-N collections in this repo are not worth converting to HashSet).
+- No efficiency/performance/green-software issues exist in the repo currently (repo has 0 open issues
+  total, confirmed via list_issues and label search). Task 5 (comment on issues) not applicable this run.
+- Checked CI status on 4 open efficiency-improver PRs (#7, #9, #12, #16): all still show state "pending"
+  with 0 reported statuses via get_status — consistent with every prior run's observation that this is
+  infra/CI-configuration related, not a code problem caused by these PRs. Did not push changes to them.
+
+## Backlog cursor (updated 2026-09-23)
+All 4 report-merger engines (JUnit/HTML/TRX/CTRF) now have BenchmarkDotNet coverage — Task 6's
+report-merger sweep is DONE. Next Task 6 candidates to scope out: ServerMode/IPC JsonRpc serialization
+paths (Jsonite is a planned rewrite target per its own code comment, so benchmark it read-only for
+before/after evidence rather than touching its internals) — not yet benchmarked. Also consider
+CommandLineOptionsValidator (startup/CLI-parse hot path, runs once per process start but on every
+`dotnet test`/`dotnet run` invocation across the whole ecosystem) as a Task 6 candidate: no benchmark
+exists for option validation/parsing despite it running unconditionally on every invocation.
+Task 2: DependsOnShouldBeValidAnalyzer caching still not attempted (flagged high-risk for analyzer
+correctness across multiple runs now — deprioritize further unless a maintainer/issue signals interest).
+Broad Contains()-in-loop sweep across Platform/Extensions (this run) found nothing new — do not re-scan
+the same files again next run; instead pick a different corner of the codebase (e.g. Adapter
+TestMethodRunner internals, or MSBuild task code, not yet swept for Contains()-in-loop patterns).
+PRs #7, #9, #12, #16 (all efficiency-improver, draft) still show CI "pending" with 0 statuses — this has
+been consistent across at least 3 runs now, strongly suggesting infra/CI config issue unrelated to PR
+content; consider flagging this pattern explicitly in the Monthly Activity issue for maintainer attention
+if it persists past the next run or two.
 
 ## Run 2026-09-21
 - Task 6: Added `TrxReportEngineMergerBenchmarks` (Merge_SmallReport 2x10, Merge_LargeReport 5x200) to
