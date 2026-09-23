@@ -92,8 +92,22 @@ internal class TypeEnumerator
     private List<UnitTestElement> GetTests(List<string> warnings, MethodInfo[] descriptorMethods, bool areAllTestMethodsSupported)
     {
         bool foundDuplicateTests = false;
+
+        // PERF: GetRuntimeMethods is used here to get all methods, including non-public, and static methods.
+        // if we rely on analyzers to identify all invalid methods on build, we can change this to fit the current settings.
+        // We fetch it once upfront (instead of inline in the loop below) so its known length can be used to
+        // pre-size foundTests/tests, avoiding avoidable resizes/rehashes; it's still skipped entirely when
+        // areAllTestMethodsSupported is true, preserving the original "no extra reflection" fast path.
+        MethodInfo[] runtimeMethods = areAllTestMethodsSupported
+            ? []
+            : PlatformServiceProvider.Instance.ReflectionOperations.GetRuntimeMethods(_type);
+        int maxTestCount = descriptorMethods.Length + runtimeMethods.Length;
+#if NETCOREAPP3_1_OR_GREATER
+        var foundTests = new HashSet<string>(maxTestCount);
+#else
         var foundTests = new HashSet<string>();
-        var tests = new List<UnitTestElement>(descriptorMethods.Length);
+#endif
+        var tests = new List<UnitTestElement>(maxTestCount);
         HashSet<MethodInfo>? descriptorMethodSet = areAllTestMethodsSupported || descriptorMethods.Length == 0
             ? null
             : [.. descriptorMethods];
@@ -102,8 +116,6 @@ internal class TypeEnumerator
         bool classDisablesParallelization = _reflectHelper.IsAttributeDefined<DoNotParallelizeAttribute>(_type);
 
         // Test class is already valid. Verify methods.
-        // PERF: GetRuntimeMethods is used here to get all methods, including non-public, and static methods.
-        // if we rely on analyzers to identify all invalid methods on build, we can change this to fit the current settings.
         foreach (MethodInfo method in descriptorMethods)
         {
             foundDuplicateTests = foundDuplicateTests || !foundTests.Add(method.ToString() ?? method.Name);
@@ -112,7 +124,7 @@ internal class TypeEnumerator
 
         if (!areAllTestMethodsSupported)
         {
-            foreach (MethodInfo method in PlatformServiceProvider.Instance.ReflectionOperations.GetRuntimeMethods(_type))
+            foreach (MethodInfo method in runtimeMethods)
             {
                 if (descriptorMethodSet?.Contains(method) ?? false)
                 {
