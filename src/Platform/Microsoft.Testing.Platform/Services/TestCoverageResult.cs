@@ -112,8 +112,8 @@ internal sealed class TestCoverageResult : ITestCoverageResult, IDataConsumer
                 // Group correlated measurements by (SessionUid, Scope) preserving first-seen order. Two
                 // sessions reporting the same scope are kept as separate summaries; ContainerHint is not part
                 // of scope identity so hints from different producers never split a scope.
-                var order = new List<(string Session, CoverageScope Scope)>();
-                var groups = new Dictionary<(string Session, CoverageScope Scope), List<CoverageMetricResult>>();
+                var order = new List<(string Session, CoverageScope Scope)>(_measurementOrder.Count);
+                var groups = new Dictionary<(string Session, CoverageScope Scope), List<CoverageMetricResult>>(_measurementOrder.Count);
 
                 foreach (MeasurementKey key in _measurementOrder)
                 {
