@@ -12,6 +12,9 @@
 - Format check: `dotnet format <project>.csproj --no-restore --verify-no-changes` (use `.dotnet` on PATH: `export PATH="$PWD/.dotnet:$PATH"`).
 - global.json pins .NET SDK 11.0.100-rc.2 (prerelease, rollForward latestFeature); runtimes 8.0/9.0/10.0 installed at `.dotnet/`.
 
+## Test filter syntax
+- `Microsoft.Testing.Platform.UnitTests.dll` does NOT support `--treenode-filter` (prints unrelated help text silently instead of an error) — use VSTest-style `--filter "FullyQualifiedName~ClassName"` instead (confirmed working 2026-09-24). Other unit test projects may differ; check `--help` output for which filter flag is supported before assuming either works.
+
 ## Benchmarks
 - Existing benchmark project: `test/Performance/MSTest.Performance.Benchmarks` (BenchmarkDotNet 0.15.8, TFM net10.0 only — BenchmarkDotNet doesn't yet recognize the repo's preview net11.0 runtime).
 - Build it directly (don't rely on top-level solution build): `dotnet build test/Performance/MSTest.Performance.Benchmarks/MSTest.Performance.Benchmarks.csproj -c Release`.
