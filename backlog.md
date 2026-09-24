@@ -85,28 +85,38 @@
   each. PR branch: test-assist/reflect-helper-tests. `MSTestAdapter.PlatformServices.UnitTests` net9.0:
   1,122 total / 1,098 passed / 24 failed (pre-existing, unrelated). All 12 new tests passed.
 
+- 2026-09-24: Added `AssemblyUtilityTests.cs` (6 tests) for
+  `src/Adapter/MSTestAdapter.PlatformServices/Utilities/AssemblyUtility.cs`'s `IsAssemblyExtension` —
+  the only member of that class NOT gated behind `#if NETFRAMEWORK`, so testable on Linux net9.0. Covers
+  `.dll`/`.exe` true, case-insensitivity, non-assembly extension, missing leading dot, and empty string.
+  PR branch: test-assist/assembly-utility-is-assembly-extension. `MSTestAdapter.PlatformServices.UnitTests`
+  net9.0: 1116 total / 1092 passed / 24 failed (pre-existing, unrelated) after adding the 6 new tests.
+  All 6 new tests passed. (Note: absolute totals vs. prior runs aren't directly comparable since each
+  session's baseline only reflects PRs merged to main, not other still-open test-improver PR branches.)
+
 ## Cursor
-- 2026-09-23: `ReflectHelper` static assembly-level helpers now covered (see Completed). Remaining
-  candidates in `src/Adapter/MSTestAdapter.PlatformServices/Helpers/` and `Utilities/`:
-  `AssemblyUtility.cs` — only `IsAssemblyExtension` is testable on Linux (small case-insensitive
-  extension-matching method); the rest (`IsAssembly`, `GetSatelliteAssemblies`,
-  `GetFullPathToDependentAssemblies`) is `#if NETFRAMEWORK`-gated AppDomain machinery needing a Windows
-  leg. `RandomIntPermutation.cs`/`SequentialIntPermutation.cs` are wrapped in `#if NETFRAMEWORK` too —
-  same Windows-only limitation. The low-hanging internal-utility backlog testable on Linux net9.0 is now
-  quite thin; next run should consider Task 4 (PR maintenance — 6 open test-improver PRs awaiting
-  review/merge) or Task 6 (test infrastructure) before further scanning for individual untested internal
-  utilities.
+- 2026-09-24: `AssemblyUtility.IsAssemblyExtension` now covered (see above). The low-hanging
+  internal-utility backlog testable on Linux net9.0 in `src/Adapter/MSTestAdapter.PlatformServices/`
+  (`Helpers/` and `Utilities/`) is now essentially exhausted — remaining candidates there
+  (`AssemblyUtility.IsAssembly`, `GetSatelliteAssemblies`, `GetFullPathToDependentAssemblies`,
+  `RandomIntPermutation.cs`, `SequentialIntPermutation.cs`) are all `#if NETFRAMEWORK`-gated and need a
+  Windows leg. Next run should pivot to: (a) Task 4 — PR maintenance, since 18+ test/perf/efficiency-improver
+  PRs are open awaiting review with none yet merged/closed; (b) scanning other product areas
+  (`src/TestFramework/`, `src/Platform/`, `src/Analyzers/`) for untested internal APIs testable on Linux;
+  or (c) Task 6 — test infrastructure investment.
 
 ## Monthly Activity Summary tracking
-- 2026-09-23: Again searched for open `[test-improver] Monthly Activity` issue (list_issues with
-  label:testing, state:OPEN) — 0 results, same as every prior run this month. Created a new
-  `[test-improver] Monthly Activity 2026-09` issue with full Run History 2026-09-18 → 2026-09-23 and
-  Suggested Actions listing PRs #8, #10, #13, #17, #19, and the new ReflectHelperTests PR
-  (test-assist/reflect-helper-tests). STRONG SUSPICION: each run's `create_issue` safe-output call is
-  landing as a *new* issue every time (not being found/updated) — likely because the safe-outputs
-  handler processes issues asynchronously after the workflow session ends, so this session's read-only
-  GitHub queries can never see issues created by earlier runs. If a maintainer reports multiple
-  `[test-improver] Monthly Activity 2026-09` issues piling up, that confirms this theory — the fix would
-  be to track the issue number in memory directly (once known from a safe-output response or maintainer
-  comment) rather than relying on search. Next run: check whether maintainer closed/consolidated any
-  duplicates and note the surviving issue number here if mentioned.
+- 2026-09-24: Verified via `github issue_read` on individual issue numbers (list_issues/search_issues both
+  return empty results in this sandbox for unknown reasons — reads work fine when the number is known
+  directly) that issues #1-#3 are integrity-filtered, #4-#5 are closed unrelated bug-fix issues, and
+  #6-#24 are ALL pull requests (perf/efficiency/test-improver, all still open, none merged/closed). Issue
+  numbers 25+ do not exist yet (404), confirming NO `[test-improver] Monthly Activity` issue currently
+  exists — prior runs' `create_issue` calls may not have landed, or this is genuinely the first one to
+  land. Created `[test-improver] Monthly Activity 2026-09` this run with full Suggested Actions list
+  (PRs #6-#24 plus the new AssemblyUtilityTests PR) and Run History starting fresh. CONFIRMED WORKAROUND
+  for future runs: `list_issues`/`search_issues` MCP calls appear broken/empty in this environment
+  (returns `totalCount: 0` even for `state: "all"` with no filters) — use `github issue_read` with
+  sequential issue numbers instead to enumerate real issues, or rely on PR-derived issue numbers from
+  `list_pull_requests` (which DOES work) since every PR in this repo is also an "issue" under the GitHub
+  API. Next run: use `issue_read` on issue numbers above the highest known PR number to find the Monthly
+  Activity issue once created, rather than trusting `list_issues`/`search_issues`.
