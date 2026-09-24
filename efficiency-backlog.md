@@ -144,3 +144,51 @@ if it persists past the next run or two.
   possibly ServerMode/IPC serialization paths (see below) once/if a rewrite plan solidifies, or discovering
   entirely new energy-critical paths lacking coverage (Adapter TestMethodRunner discovery, TypeCache) —
   not yet benchmarked despite being reviewed as "already optimized" in Task 2.
+
+## Run 2026-09-24
+- Task 2: Delegated a scan of previously-unreviewed Adapter Execution files (TestMethodRunner.cs +
+  3 partials, TypeCache.cs + 4 partials) to a sub-agent. Result: all already heavily optimized
+  (explicit PERF comments, _classInfoCache/_testAssemblyInfoCache, GetCustomAttributesCached,
+  cached ReflectionTestMethodInfo). Three minor LOW-priority notes recorded (FilterDiscovery LINQ
+  array projection, IsFrameworkAssemblyName StartsWith chain, per-data-row TestContextImplementation
+  clone which is intentional for correctness per issue #7933) — none worth action this run.
+- Task 6 (measurement infrastructure): Added `CommandLineOptionsValidatorBenchmarks` to
+  test/Performance/MSTest.Performance.Benchmarks, covering CommandLineOptionsValidator.ValidateAsync
+  with few (2) vs. many (12) registered extension providers. This was the Task 6 candidate flagged
+  in the 2026-09-23 backlog cursor note (startup/CLI-parse hot path, runs unconditionally on every
+  dotnet test/dotnet run invocation, had zero benchmark coverage). Required InternalsVisibleTo for
+  MSTest.Performance.Benchmarks in Microsoft.Testing.Platform.csproj (CommandLineOptionsValidator is
+  `internal static class`) + an explicit ProjectReference to Microsoft.Testing.Platform.csproj in
+  MSTest.Performance.Benchmarks.csproj (previously only transitively referenced). PR:
+  efficiency/commandline-validator-benchmark. Baseline numbers (--job short, informational):
+  ValidateAsync_FewExtensions (2 extensions, 27 options) 83.35us/45.76KB, ValidateAsync_ManyExtensions
+  (12 extensions, 52 options) 152.32us/85.18KB (1.83x time, 1.86x alloc vs few-extensions baseline) —
+  cost scales roughly linearly with extension/option count, consistent with the ToDictionary/SelectMany
+  provider-and-option lookup construction in ValidateAsync. Full ./build.sh (Debug) ran clean (0
+  warnings/errors); format check on the new file was clean.
+- Repo still has 0 open issues total (confirmed via list_issues state=open and state=all) — no
+  Monthly Activity issue exists yet this run (need to create fresh, not just update).
+- Checked CI status on the two remaining open efficiency-improver PRs still tracked from prior runs
+  (#9 JUnitReportMerger benchmark, #12 HtmlReportMerger benchmark, #16 TrxReportEngine benchmark,
+  #21 CtrfReportMerger benchmark - all still open) plus #7 (JUnit single-pass fix): all 5 still show
+  CI state "pending" with 0 reported statuses via get_status. This is now consistent across 4+ runs -
+  flagged explicitly in this run's Monthly Activity issue for maintainer attention as it strongly
+  suggests an infra/CI-configuration gap (e.g. missing workflow trigger for PRs from this bot) rather
+  than anything wrong with the PRs' content.
+
+## Backlog cursor (updated 2026-09-24)
+Task 6: CommandLineOptionsValidator benchmark is DONE (was the last flagged candidate from
+2026-09-23). Next Task 6 candidates to scope out: ServerMode/IPC JsonRpc serialization paths
+(Jsonite - still a planned rewrite target per its own code comment, benchmark read-only) - not yet
+benchmarked, still the best next candidate. Also consider: TypeCache assembly/class discovery
+end-to-end (not individual already-cached helper methods, but the full per-assembly discovery walk)
+as a coarser-grained benchmark target distinct from the per-method micro-benchmarks already
+declined this run.
+Task 2: next run should pick a genuinely unswept corner - candidates not yet reviewed: MSBuild task
+code (Microsoft.Testing.Platform.MSBuild / Microsoft.Testing.Extensions.MSBuild), VSTestBridge
+adapter-shim code, or ServerMode/IPC message dispatch loop (also relevant to Task 6's Jsonite
+benchmark idea - could do both in one pass).
+CI "pending with 0 statuses" pattern on efficiency-improver/perf-improver/test-improver PRs is now
+persistent across 4+ runs (#7, #9, #12, #16, #21 all affected) - explicitly flagged in Monthly
+Activity issue this run; if a maintainer doesn't address it, keep flagging but do not keep retrying
+pushes to fix it (confirmed not caused by PR content across multiple content variations already).
