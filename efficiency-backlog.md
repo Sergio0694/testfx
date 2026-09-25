@@ -176,6 +176,57 @@ if it persists past the next run or two.
   suggests an infra/CI-configuration gap (e.g. missing workflow trigger for PRs from this bot) rather
   than anything wrong with the PRs' content.
 
+## Run 2026-09-25
+- Task 3 (implement): Delegated a fresh Task 2 sweep of MSBuild task code
+  (Microsoft.Testing.Platform.MSBuild + Microsoft.Testing.Extensions.MSBuild, per prior backlog
+  cursor) to a sub-agent — result: nothing worth pursuing (all cold, once-per-build code paths;
+  bounded N; already-optimized hot spots per prior sweeps). Pivoted to the other flagged Task 6/2
+  candidate: ServerMode/IPC JsonRpc serialization (`Json.cs`). Found `Json.SerializeAsync` recursed
+  through Task-returning async methods (SerializeAsync(obj, writer)) to write a JSON object graph via
+  Utf8JsonWriter, even though every write target is an in-memory MemoryStream and every registered
+  JsonValueSerializer.Serialize delegate is a plain synchronous Action<Utf8JsonWriter, object> — no
+  actual async I/O anywhere in the recursion. This runs on every JSON-RPC message in MTP server mode
+  (one call per test-node/test-result update), a genuinely hot path (not the cold-build-time code
+  flagged as low-priority in past runs). Converted the recursive helper to synchronous (Task.FromResult
+  wrapping only at the public entry point); required a narrowly-scoped
+  `#pragma warning disable/restore VSTHRD103` around the now-synchronous `Flush()` call (destination is
+  a MemoryStream, so no real I/O to await — analyzer can't know that). PR:
+  efficiency/json-serializer-sync-recursion. Measured via a standalone (not committed) BenchmarkDotNet
+  microbenchmark mirroring the recursive-write shape (nested Dictionary/List graph, depth 3, fanout 5):
+  SerializeAsync_RecursiveAwait (before) 6.421us vs. Serialize_SynchronousRecursion (after) 4.646us —
+  ~28% CPU time reduction (ratio 0.72), allocated bytes identical in this synthetic model (9.27 KB both
+  — completed-synchronously state-machine overhead here is mostly CPU cycles, not GC-visible heap).
+  Full ./build.sh (Debug) clean (0 warnings/errors); built Microsoft.Testing.Platform.csproj across all
+  3 TFMs (net8.0/net9.0/netstandard2.0) individually plus the sibling
+  Microsoft.Testing.Platform.ServerMode.Client.Sources.csproj (shares the modified file via linked
+  Compile item) — all clean. Ran full Microsoft.Testing.Platform.UnitTests suite (net9.0): 2563 total,
+  2542 passed, 0 failed, 21 skipped. Format check clean.
+- Note for future runs: this is the first efficiency-improver PR of a genuinely *hot* runtime code path
+  (not a cold build-time or once-per-build-invocation path, and not just adding benchmark coverage) in
+  several runs — the ServerMode/IPC JsonRpc area (flagged since the 2026-09-23/24 backlog cursor notes)
+  turned out to have real opportunity once actually read, contrary to the earlier assumption that it was
+  only worth a read-only benchmark. Worth revisiting other Json.cs/JsonRpc files
+  (SerializerUtilities.TestNodeSerializers.cs, Json.TestNodeSerializer.cs, JsonReflector.cs in the
+  netstandard2.0 Jsonite fallback) in a future run for similar unnecessary-async patterns — not yet
+  swept this run (ran out of scope after finding and fully validating the Json.cs fix).
+- Verified all 6 open efficiency-improver PRs (#7, #9, #12, #16, #21, #24) again via get_status: all
+  still show state "pending" with 0 reported statuses — persistent pattern now spans 5+ runs. No new
+  efficiency/performance-labeled issues exist (repo has 0 open issues total). Task 5 not applicable.
+
+## Backlog cursor (updated 2026-09-25)
+Task 2/3: ServerMode/IPC JsonRpc Json.cs unnecessary-async-recursion fix is DONE (PR
+efficiency/json-serializer-sync-recursion). Next candidates in this area, not yet reviewed: other
+Json.cs sibling files with similar patterns (SerializerUtilities.TestNodeSerializers.cs — check for
+async recursion or per-call reflection; Json.TestNodeSerializer.cs; the netstandard2.0 Jsonite fallback
+under Jsonite/ — JsonReflector.cs in particular does per-object-graph reflection and may have caching
+opportunities). Also still not benchmarked: TypeCache assembly/class discovery end-to-end (coarser-
+grained than already-declined per-method micro-benchmarks).
+Task 2: MSBuild task code (Microsoft.Testing.Platform.MSBuild / Microsoft.Testing.Extensions.MSBuild)
+now confirmed swept and empty — do not re-scan next run. Remaining unswept corners: VSTestBridge
+adapter-shim code (still not reviewed after 2+ runs of being listed as a candidate).
+CI "pending with 0 statuses" pattern persists across #7, #9, #12, #16, #21, #24 (6 PRs now, 5+ runs) -
+keep flagging in Monthly Activity issue; do not keep retrying pushes to "fix" it.
+
 ## Backlog cursor (updated 2026-09-24)
 Task 6: CommandLineOptionsValidator benchmark is DONE (was the last flagged candidate from
 2026-09-23). Next Task 6 candidates to scope out: ServerMode/IPC JsonRpc serialization paths
