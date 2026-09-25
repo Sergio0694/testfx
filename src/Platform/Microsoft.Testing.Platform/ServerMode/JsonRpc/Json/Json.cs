@@ -50,18 +50,31 @@ internal sealed partial class Json
         }
     }
 
-    public async Task<string> SerializeAsync(object obj)
+    public Task<string> SerializeAsync(object obj)
     {
         MemoryStream stream = _memoryStreamPool.Allocate();
         try
         {
             stream.Position = 0;
-#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
-            await using Utf8JsonWriter writer = new(stream);
-#pragma warning restore CA2007 // Consider calling ConfigureAwait on the awaited task
-            await SerializeAsync(obj, writer).ConfigureAwait(false);
-            await writer.FlushAsync().ConfigureAwait(false);
-            return Encoding.UTF8.GetString(stream.GetBuffer().AsMemory().Span[..(int)stream.Position]);
+
+            // The whole write graph below is synchronous: Utf8JsonWriter writes straight into an
+            // in-memory MemoryStream buffer (no actual I/O), and every registered JsonValueSerializer.Serialize
+            // is a plain synchronous Action<Utf8JsonWriter, object>. Recursing through Task-returning
+            // async methods for this (as a previous version of this code did) allocated a Task/state
+            // machine per serialized object/array element for no benefit. Using(without await) still
+            // disposes the writer synchronously since Utf8JsonWriter.DisposeAsync has no async work to do.
+            using (Utf8JsonWriter writer = new(stream))
+            {
+                Serialize(obj, writer);
+
+                // Flush (not FlushAsync) is intentional: the destination is an in-memory MemoryStream,
+                // so there is no actual I/O to await here; it's a synchronous memcpy either way.
+#pragma warning disable VSTHRD103 // Flush synchronously blocks. Await FlushAsync instead.
+                writer.Flush();
+#pragma warning restore VSTHRD103
+            }
+
+            return Task.FromResult(Encoding.UTF8.GetString(stream.GetBuffer().AsMemory().Span[..(int)stream.Position]));
         }
         finally
         {
@@ -145,7 +158,7 @@ internal sealed partial class Json
         throw new InvalidOperationException($"Cannot find deserializer for {typeof(T)}.");
     }
 
-    private async Task SerializeAsync(object? obj, Utf8JsonWriter writer)
+    private void Serialize(object? obj, Utf8JsonWriter writer)
     {
         // Serialize null
         if (obj == null)
@@ -166,7 +179,7 @@ internal sealed partial class Json
                     foreach ((string property, object? value) in properties)
                     {
                         writer.WritePropertyName(property);
-                        await SerializeAsync(value, writer).ConfigureAwait(false);
+                        Serialize(value, writer);
                     }
                 }
 
@@ -193,7 +206,7 @@ internal sealed partial class Json
                 }
                 else
                 {
-                    await SerializeAsync(o, writer).ConfigureAwait(false);
+                    Serialize(o, writer);
                 }
             }
 
