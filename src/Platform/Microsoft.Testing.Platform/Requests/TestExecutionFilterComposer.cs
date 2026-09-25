@@ -60,9 +60,16 @@ internal static class TestExecutionFilterComposer
             HashSet<string>? intersection = null;
             foreach (TestNodeUidListFilter uidFilter in uidFilters.OrderBy(filter => filter.TestNodeUids.Length))
             {
-                var currentUids = new HashSet<string>(
-                    uidFilter.TestNodeUids.Select(uid => uid.Value),
-                    StringComparer.Ordinal);
+                TestNodeUid[] testNodeUids = uidFilter.TestNodeUids;
+#if NETCOREAPP3_1_OR_GREATER
+                var currentUids = new HashSet<string>(testNodeUids.Length, StringComparer.Ordinal);
+#else
+                var currentUids = new HashSet<string>(StringComparer.Ordinal);
+#endif
+                foreach (TestNodeUid uid in testNodeUids)
+                {
+                    currentUids.Add(uid.Value);
+                }
 
                 if (intersection is null)
                 {

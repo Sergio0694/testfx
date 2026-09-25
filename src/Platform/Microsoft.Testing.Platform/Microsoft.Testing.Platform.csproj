@@ -80,6 +80,7 @@ $(CommonProductDescription)]]></PackageDescription>
     <InternalsVisibleTo Include="MSTest.TestAdapter" Key="$(VsPublicKey)" />
     <InternalsVisibleTo Include="Microsoft.VisualStudio.TestPlatform.MSTestAdapter.UnitTests" Key="$(VsPublicKey)" />
     <InternalsVisibleTo Include="TestFramework.ForTestingMSTest" Key="$(VsPublicKey)" />
+    <InternalsVisibleTo Include="MSTest.Performance.Benchmarks" Key="$(VsPublicKey)" />
   </ItemGroup>
 
   <ItemGroup>
