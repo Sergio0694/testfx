@@ -39,6 +39,24 @@
   Nested fixture types mean `ClassIndex` hierarchy value is `ManagedNameHelperTests+SampleClass` (not a
   bare class name) — asserted correctly, learned this the hard way via first test-run failure.
 
+- 2026-09-25: Added `ExtensionBuilderHelperTests.cs` (18 tests) for
+  `src/Platform/Microsoft.Testing.Platform/Helpers/ExtensionBuilderHelper.cs` — a shipped internal API
+  (`InternalAPI.Shipped.txt`) implementing the shared instantiate/validate-unique/enable-check/
+  initialize/register loop used by `TestHostManager`, `TestHostOrchestratorManager`, and
+  `TestHostControllersManager` to build every kind of platform extension. Previously had zero direct
+  unit tests, only incidental exercise via the manager classes. Covers all 4 public methods: the simple
+  `List<T>` overload and the ordered-tuple overload of `BuildAndRegisterExtensionsAsync` (enabled/disabled
+  gating, `IAsyncInitializableExtension.InitializeAsync` invocation, duplicate-UID throw,
+  `registerInServiceProvider` true/false, registration-order preservation); `BuildAndRegisterCompositeExtensionsAsync`
+  (interface-implementation check throwing `InvalidOperationException`, singleton reuse via cloned
+  factory — factory invoked only once across calls, disabled extensions recorded in `alreadyBuiltServices`
+  without re-invocation but not added to result); `BuildAndRegisterCompositeExtensionsInPlaceAsync`
+  (same interface check, in-place singleton reuse without cloning, service-provider registration,
+  disabled extensions neither added nor registered). PR branch:
+  test-assist/extension-builder-helper-tests. `Microsoft.Testing.Platform.UnitTests` net9.0: 2580 total /
+  2559 passed / 21 skipped (pre-existing, unrelated) / 0 failed, up from 2562 total baseline (+18 new,
+  all passing). Build with `-warnaserror` clean (0 warnings/errors).
+
 ## Backlog / opportunities not yet actioned
 - `src/TestFramework/TestFramework/Internal/StringEx.cs` — reviewed 2026-09-19: these are trivial
   one-line pass-throughs around `string.IsNullOrEmpty`/`string.IsNullOrWhiteSpace`. NOT pursuing —
@@ -104,6 +122,23 @@
   PRs are open awaiting review with none yet merged/closed; (b) scanning other product areas
   (`src/TestFramework/`, `src/Platform/`, `src/Analyzers/`) for untested internal APIs testable on Linux;
   or (c) Task 6 — test infrastructure investment.
+
+## Cursor (2026-09-25 update)
+- 2026-09-25: Confirmed no `[test-improver] Monthly Activity` issue existed yet for September (prior
+  claim of having created one apparently did not land, or a previous run's `create_issue` call failed
+  silently). Created it now via `create_issue` safe-output, listing all 22 currently-open PRs (#6-#27
+  plus the new ExtensionBuilderHelper PR, referenced via temporary_id `#aw_ebht`) as Suggested Actions
+  since none have been reviewed/merged/closed. `list_pull_requests` (via `github` CLI bridge) DOES work
+  reliably in this sandbox (contradicts a prior note claiming otherwise) — used it directly to enumerate
+  all open PRs in one call instead of probing individual issue numbers. `issue_read` on non-existent issue
+  numbers correctly returns 404 (not empty results) — use that to confirm an issue truly doesn't exist yet.
+- Next run: pivot Task 3 target away from `MSTestAdapter.PlatformServices` (exhausted on Linux) toward
+  other untested internal `Helpers/`-style classes in `Microsoft.Testing.Platform`,
+  `Microsoft.Testing.Extensions.*`, or `src/TestFramework/` — cross-reference existing
+  `test/UnitTests/<Project>/**/*Tests.cs` file names against `src/**/*.cs` file names per subdirectory to
+  find gaps quickly (as done this run for `Helpers/`). Also consider Task 4 (PR maintenance) given the
+  growing backlog of unreviewed test-improver/perf-improver/efficiency-improver PRs — none merged yet
+  after 4+ runs.
 
 ## Monthly Activity Summary tracking
 - 2026-09-24: Verified via `github issue_read` on individual issue numbers (list_issues/search_issues both
