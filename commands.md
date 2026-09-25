@@ -15,6 +15,12 @@
 ## Test filter syntax
 - `Microsoft.Testing.Platform.UnitTests.dll` does NOT support `--treenode-filter` (prints unrelated help text silently instead of an error) — use VSTest-style `--filter "FullyQualifiedName~ClassName"` instead (confirmed working 2026-09-24). Other unit test projects may differ; check `--help` output for which filter flag is supported before assuming either works.
 
+## GitHub MCP CLI quirks (validated 2026-09-25)
+- `github pull_request_read` requires `--method` (e.g. `get`, `get_status`, `get_comments`, `get_check_runs`) — omitting it errors "missing required parameter: method".
+- `list_issues`/`search_issues` `labels` param must be an array (`["performance"]`), not a bare string, or it errors "could not be coerced to []string".
+- `search_issues` requires a `query` string param (not implicit repo+state filters like `list_issues`).
+- GitHub search API (`search_issues`) can hit "API rate limit of 30" transient 403s under repeated calls in a short window — wait ~30-60s and retry.
+
 ## Benchmarks
 - Existing benchmark project: `test/Performance/MSTest.Performance.Benchmarks` (BenchmarkDotNet 0.15.8, TFM net10.0 only — BenchmarkDotNet doesn't yet recognize the repo's preview net11.0 runtime).
 - Build it directly (don't rely on top-level solution build): `dotnet build test/Performance/MSTest.Performance.Benchmarks/MSTest.Performance.Benchmarks.csproj -c Release`.
