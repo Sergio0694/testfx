@@ -155,3 +155,36 @@
   `list_pull_requests` (which DOES work) since every PR in this repo is also an "issue" under the GitHub
   API. Next run: use `issue_read` on issue numbers above the highest known PR number to find the Monthly
   Activity issue once created, rather than trusting `list_issues`/`search_issues`.
+
+- 2026-09-26: Added `UILanguageOverrideTests.cs` (9 tests) for
+  `src/Platform/Microsoft.Testing.Platform/UILanguageOverride.cs`'s `SetCultureSpecifiedByUser` — a
+  previously-untested internal API implementing the CLI's UI-language precedence chain
+  (`TESTINGPLATFORM_UI_LANGUAGE` > `DOTNET_CLI_UI_LANGUAGE` > `VSLANG`) plus flowing the resolved
+  culture to 4 child-process env vars without clobbering already-set ones. Mutates process-wide
+  `CultureInfo.DefaultThreadCurrentUICulture`, so the class is `[DoNotParallelize]` with
+  save/restore in TestInitialize/TestCleanup (MSTEST0076 analyzer enforces this — caught it via a
+  build error on first attempt). PR branch: test-assist/ui-language-override-tests.
+  `Microsoft.Testing.Platform.UnitTests` net9.0: 2571 total / 2550 passed / 21 skipped (pre-existing) /
+  0 failed, up from 2562 baseline (+9 new, all passing). `-warnaserror` build clean.
+  LESSON LEARNED: `TESTINGPLATFORM_UI_LANGUAGE`, `DOTNET_CLI_UI_LANGUAGE`, and `VSLANG` are each BOTH a
+  selection input AND a flow-to-children target in this method. First test draft asserted a variable
+  was freshly SET while that same variable's value was also used to SELECT the culture (already
+  "set" from the mock's perspective) — caused 3 real test failures against correct product behavior
+  (verified by rereading `SetIfNotAlreadySet`/`FlowOverrideToChildProcesses`, not a product bug).
+  Fixed by selecting the culture through a *different* variable than the one being asserted per test.
+  Also: `CultureInfo.GetCultureInfo("not-a-real-culture")` does NOT throw (returns a custom culture
+  named "not") — use a string with actually-invalid characters (e.g. "!!invalid!!") to test the
+  `CultureNotFoundException` catch branch.
+
+## Cursor (2026-09-26 update)
+- `Microsoft.Testing.Platform` `Helpers/` namespace backlog testable on Linux is now essentially
+  exhausted for classes with real logic. Remaining untested Helpers classes reviewed and explicitly
+  NOT pursued (see reasons in Testing Opportunities Backlog of the monthly issue): `Sha256Hasher`
+  (`[ExcludeFromCodeCoverage]` ported code), `ArgumentGuard`/`HashCode`/`StringBuilderExtensions`
+  (trivial one-liners/polyfills gated `#if !NETCOREAPP` — untestable on this Linux net9.0 sandbox
+  anyway), `ExtensionHelper`/`RuntimeFeatureHelper`/`StackTraceHelper` (thin wrappers/OS probes,
+  already indirectly exercised).
+- Next run: pivot to Task 4 (PR maintenance) — 25 open test/perf/efficiency-improver PRs, none
+  merged/closed after 5+ runs despite multiple monthly summary nudges; or scan `src/TestFramework/`
+  and `src/Analyzers/MSTest.Analyzers` (C# rules only, per repo-specific VB.NET exclusion) for
+  untested internal APIs.
