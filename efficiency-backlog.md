@@ -1,6 +1,22 @@
 # Efficiency Backlog
 
 ## Completed
+- HIGH (Code-Level): `SynchronousAwaiter.Await` (VSTestBridge, `Helpers/SynchronousAwaiter.cs`) defaulted
+  `busyWait: true`, a SpinWait-based CPU busy-spin, on 7 call sites: `FrameworkHandlerAdapter.RecordResult`
+  /`RecordStart`/`RecordAttachments` (once per test result/start, i.e. proportional to test count),
+  `MessageLoggerAdapter.SendMessage` x3, `TestCaseDiscoverySinkAdapter.SendTestCase` (once per discovered
+  test). Verified the entire downstream async chain (AsynchronousMessageBus, AsyncConsumerDataProcessor/
+  BlockingConsumerDataProcessor, MessageBusProxy, ProxyOutputDevice) is ConfigureAwait(false) end-to-end with
+  no SynchronizationContext capture, so blocking via GetAwaiter().GetResult() cannot deadlock. Flipped the
+  default to `busyWait: false`. Measured via standalone (uncommitted) benchmark: BenchmarkDotNet
+  steady-state Channel<T> write/read (near-instant completion, best case for busy-wait) showed BusyWait
+  23.15ns vs Blocking 21.18ns (~9% CPU reduction even in the best case); manual TotalProcessorTime
+  comparison with realistic 50us consumer delay (simulating report-writer work) over 2000 iterations showed
+  BusyWait 294-475us CPU/op vs Blocking 189-210us CPU/op (~1.5-2.3x more CPU under busy-wait once the
+  awaited task takes any real time). Required updating InternalAPI.Shipped.txt (default-value-only
+  signature change to a tracked internal API). PR: efficiency/synchronous-awaiter-blocking-default. Full
+  build of Microsoft.Testing.Extensions.VSTestBridge.csproj (all 3 TFMs) clean 0 warnings/errors;
+  Microsoft.Testing.Extensions.VSTestBridge.UnitTests (net9.0) 97/97 passed; format check clean.
 - HIGH (Code-Level): `JUnitReportMerger.MergeRetryAttempts` did 3x `Elements().Any(...)` scans per
   test case to detect failure/error/skipped. Replaced with single foreach.
   PR: efficiency/junit-merge-single-pass-status. Measured via standalone microbenchmark
@@ -226,6 +242,38 @@ now confirmed swept and empty — do not re-scan next run. Remaining unswept cor
 adapter-shim code (still not reviewed after 2+ runs of being listed as a candidate).
 CI "pending with 0 statuses" pattern persists across #7, #9, #12, #16, #21, #24 (6 PRs now, 5+ runs) -
 keep flagging in Monthly Activity issue; do not keep retrying pushes to "fix" it.
+
+## Run 2026-09-26
+- Task 2/3: Delegated a sub-agent scan of VSTestBridge adapter-shim code (the last unswept corner flagged
+  since the 2026-09-25 backlog cursor). Found `SynchronousAwaiter.Await`'s `busyWait: true` default
+  (see Completed section above) — implemented and shipped as PR efficiency/synchronous-awaiter-blocking-
+  default. Sub-agent also flagged smaller MEDIUM/LOW items not pursued this run: `ObjectModelConverters.
+  CopyMSTestDependencies`'s `dependencies.Take(64)` LINQ iterator allocation per test case (small, <64
+  items, borderline LOW/MEDIUM — could switch to indexed for-loop but low volume per call); `RunSettings
+  Patcher.PatchTestRunParameters`'s O(n*m) FirstOrDefault-in-loop (both n/m always <100, session-level not
+  per-test-case, consistent with repo's small-N convention — no action). Nothing else in VSTestBridge
+  warranted action (RunSettingsAdapter/RunSettingsPatcher, SynchronizedSingleSessionVSTestAndTestAnywhere
+  Adapter, RunContextAdapter/DiscoveryContextAdapter, request factories already reviewed as session-level/
+  once-per-request, not hot).
+- Verified all 7 open efficiency-improver PRs (#7, #9, #12, #16, #21, #24, #27) again via get_status: all
+  still show state "pending" with 0 reported statuses — persistent pattern now spans 6+ runs. Continuing
+  to flag in Monthly Activity issue without retrying pushes (per repo's own guidance after 3+ runs of the
+  same infra symptom).
+- Repo still has 0 open issues total (list_issues state=open and search_issues both returned empty) — no
+  efficiency/performance-labeled issues to comment on (Task 5 not applicable), and no existing Monthly
+  Activity issue to update (need to create fresh again this run, as in 2026-09-24).
+
+## Backlog cursor (updated 2026-09-26)
+Task 2/3: VSTestBridge adapter-shim sweep is DONE (SynchronousAwaiter busy-wait fix shipped). Remaining
+VSTestBridge candidates, not worth pursuing yet per sub-agent's LOW/MEDIUM findings: ObjectModelConverters.
+CopyMSTestDependencies Take(64) iterator allocation (small volume, borderline). Next genuinely unswept
+corners for a future run: Adapter/MSTestAdapter.PlatformServices discovery-service implementations (not
+yet reviewed - distinct from the already-swept TestMethodRunner/TypeCache in 2026-09-24), or the
+ServerMode/IPC Json.cs sibling files flagged since 2026-09-25 (SerializerUtilities.TestNodeSerializers.cs,
+Json.TestNodeSerializer.cs, JsonReflector.cs netstandard2.0 Jsonite fallback) - still not swept for
+similar unnecessary-async or caching patterns as the original Json.cs fix (PR #27, still open/unmerged).
+CI "pending with 0 statuses" pattern persists across 7 PRs now (#7, #9, #12, #16, #21, #24, #27), 6+ runs -
+keep flagging in Monthly Activity, do not retry pushes.
 
 ## Backlog cursor (updated 2026-09-24)
 Task 6: CommandLineOptionsValidator benchmark is DONE (was the last flagged candidate from
