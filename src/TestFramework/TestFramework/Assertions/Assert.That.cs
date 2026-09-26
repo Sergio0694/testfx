@@ -77,7 +77,11 @@ public static partial class AssertExtensions
             else
             {
                 // For side-effect-free expressions, keep the fast path and only compute details on failures.
-                result = condition.Compile().Invoke();
+                // Prefer the expression tree interpreter over Reflection.Emit-based compilation: the compiled
+                // delegate is invoked exactly once here and then discarded, so paying the (comparatively higher)
+                // per-call interpretation cost is far cheaper than the one-time IL-emission and JIT cost of a
+                // real compiled delegate that never gets reused.
+                result = condition.Compile(preferInterpretation: true).Invoke();
                 if (result)
                 {
                     return;
