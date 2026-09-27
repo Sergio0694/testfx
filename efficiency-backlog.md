@@ -263,17 +263,52 @@ keep flagging in Monthly Activity issue; do not keep retrying pushes to "fix" it
   efficiency/performance-labeled issues to comment on (Task 5 not applicable), and no existing Monthly
   Activity issue to update (need to create fresh again this run, as in 2026-09-24).
 
-## Backlog cursor (updated 2026-09-26)
-Task 2/3: VSTestBridge adapter-shim sweep is DONE (SynchronousAwaiter busy-wait fix shipped). Remaining
-VSTestBridge candidates, not worth pursuing yet per sub-agent's LOW/MEDIUM findings: ObjectModelConverters.
-CopyMSTestDependencies Take(64) iterator allocation (small volume, borderline). Next genuinely unswept
-corners for a future run: Adapter/MSTestAdapter.PlatformServices discovery-service implementations (not
-yet reviewed - distinct from the already-swept TestMethodRunner/TypeCache in 2026-09-24), or the
-ServerMode/IPC Json.cs sibling files flagged since 2026-09-25 (SerializerUtilities.TestNodeSerializers.cs,
-Json.TestNodeSerializer.cs, JsonReflector.cs netstandard2.0 Jsonite fallback) - still not swept for
-similar unnecessary-async or caching patterns as the original Json.cs fix (PR #27, still open/unmerged).
-CI "pending with 0 statuses" pattern persists across 7 PRs now (#7, #9, #12, #16, #21, #24, #27), 6+ runs -
-keep flagging in Monthly Activity, do not retry pushes.
+## Run 2026-09-27
+- Task 2: Reviewed the remaining ServerMode/IPC Json.cs sibling files flagged since 2026-09-25
+  (SerializerUtilities.TestNodeSerializers.cs, Json.TestNodeSerializer.cs, JsonObjectSerializer1.cs,
+  JsonElementDeserializer.cs, JsonCollectionDeserializer.cs, FormatterUtilities.cs, and the netstandard2.0
+  Jsonite fallback: JsonReflector.cs, JsonWriter.cs, JsonReader.cs, Json.cs). Result: no unnecessary-async
+  patterns found (the original Json.cs recursive-serialize fix in PR #27 was the only genuine instance);
+  the Jsonite fallback files are already fully synchronous (no async/await at all - they predate/bypass the
+  System.Text.Json async surface entirely). JsonObjectSerializer1.cs/JsonElementDeserializer.cs are thin
+  generic wrapper types, nothing to optimize. TryArrayBind's `.Select(Deserialize<T>)` LINQ allocates one
+  delegate + iterator per call but only runs on rarely-populated arrays (ProtocolVersions, TestNodes in a
+  single request) - small-N, not worth it per repo convention. Also delegated a sub-agent sweep of
+  Adapter/MSTestAdapter.PlatformServices Discovery/ and Services/ directories (the other flagged unswept
+  corner from 2026-09-26): result was "everything already heavily optimized" (ReflectionOperations'
+  ConcurrentDictionary attribute cache, TypeEnumerator's cached class-level attribute flags,
+  AssemblyEnumerator's cached attribute arrays) - no new opportunities, consistent with every other Adapter
+  area already swept in prior runs (TestMethodRunner/TypeCache in 2026-09-24).
+- Verified CI status on all 8 open efficiency-improver PRs (#7, #9, #12, #16, #21, #24, #27, #31) via
+  get_status: all still show state "pending" with 0 reported statuses - now a persistent pattern across
+  7+ runs. Checked get_comments on all 8: zero new comments since last run on any of them - no maintainer
+  feedback to act on, Task 4 has nothing actionable this run (not pushing, not commenting - per repo's
+  own guidance to stop retrying after 3+ runs of the same infra symptom).
+- Repo still has 0 open issues total, and 0 issues total (open+closed combined) - confirms no Monthly
+  Activity issue has ever been created/is findable via list_issues state=all. Creating fresh this run.
+  Task 5 (comment on issues) not applicable (0 issues exist).
+- No new Task 2/3 HIGH/MEDIUM opportunity found this run after two sub-agent-assisted sweeps of the two
+  areas flagged as "next candidates" since 2026-09-25/26. The backlog of genuinely unswept, hot-path
+  corners in this codebase is now effectively exhausted after ~7 runs of systematic sweeping - most
+  remaining surface area is either already optimized (repeated finding across Adapter/MSTest/Platform/
+  Extensions) or small-N/cold-path code that repo convention (confirmed via the 2026-09-22 HashSet-vs-List
+  microbenchmark) says isn't worth touching. Future runs should prioritize Task 6 (measurement
+  infrastructure - e.g. TypeCache end-to-end discovery benchmark, still not done) and Task 4/7 maintenance
+  over further Task 2 code-sweeps, unless a new corner of the codebase is identified (e.g. MSTest.Sdk
+  MSBuild targets/props not yet reviewed, or Roslyn analyzer perf beyond DependsOnShouldBeValidAnalyzer).
+
+## Backlog cursor (updated 2026-09-27)
+Task 2: Both corners flagged since 2026-09-25/26 (ServerMode/IPC Json.cs siblings, Adapter/
+PlatformServices Discovery+Services) are now confirmed swept and empty - do not re-scan. The systematic
+Task-2 sweep of "likely hot paths" across Platform/Adapter/Extensions is now largely exhausted after 7
+runs. Next candidates for a future run, not yet reviewed: (a) TypeCache end-to-end assembly/class
+discovery benchmark (coarser-grained, Task 6 candidate, flagged multiple times since 2026-09-24/25 but
+never actioned - still the best concrete Task 6 candidate); (b) MSTest.Sdk MSBuild targets/props
+(entirely unreviewed by any prior run); (c) DependsOnShouldBeValidAnalyzer caching (flagged since
+2026-09-22, still deprioritized as high-risk analyzer-correctness territory, still no maintainer signal).
+CI "pending with 0 statuses" pattern persists across all 8 PRs now (#7, #9, #12, #16, #21, #24, #27, #31),
+7+ runs - continuing to flag in Monthly Activity without retrying pushes, per repo's own established
+guidance. Zero new PR comments across all 8 PRs this run - Task 4 fully quiescent.
 
 ## Backlog cursor (updated 2026-09-24)
 Task 6: CommandLineOptionsValidator benchmark is DONE (was the last flagged candidate from
