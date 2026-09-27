@@ -31,3 +31,9 @@
   attribute pollution. Same pattern already used in `TypeCacheTestFilterProviderTests.cs`. Works
   identically on `#if NETFRAMEWORK` (via `AppDomain.CurrentDomain.DefineDynamicAssembly`) and modern TFMs
   (via the static `AssemblyBuilder.DefineDynamicAssembly`).
+- `pull_request_read`/`issue_read` (via the `github` CLI bridge) both require an explicit
+  `--method`/`"method"` JSON param (e.g. `"get"`, `"get_status"`, `"get_check_runs"`,
+  `"get_comments"`). Omitting it returns a 200 response whose `content[0].text` is the literal
+  string `"missing required parameter: method"` with `isError:true` — NOT a thrown error — so
+  code that blindly does `response[0].get(field)` will silently get `None` instead of failing
+  loudly. Always check `isError` first.

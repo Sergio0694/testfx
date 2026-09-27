@@ -188,3 +188,57 @@
   merged/closed after 5+ runs despite multiple monthly summary nudges; or scan `src/TestFramework/`
   and `src/Analyzers/MSTest.Analyzers` (C# rules only, per repo-specific VB.NET exclusion) for
   untested internal APIs.
+
+## Cursor (2026-09-27 update)
+- 2026-09-27: Added `RetryThresholdPolicyTests.cs` (7 tests) for
+  `src/Platform/Microsoft.Testing.Extensions.Retry/RetryThresholdPolicy.cs`'s `EvaluateAsync` —
+  the `--retry-failed-tests-max-percentage`/`--retry-failed-tests-max-tests` failure-threshold
+  policy that disables retrying and reports an explanation when the first attempt's failures
+  exceed the configured threshold. Previously had zero direct unit tests, only incidental
+  exercise via end-to-end acceptance tests. Used the existing `RetryDataConsumerTests.cs`
+  service-provider construction pattern (`SystemEnvironment`/`SystemTask`/mocked
+  `ILoggerFactory`) plus the existing `TestCommandLineOptions` test double, and drove the
+  private `RetryFailedTestsPipeServer.CallbackAsync` via reflection (same technique as
+  `HangDumpTests.cs`) to populate `TotalTestRan`/`FailedTestResults`/`FailedTests` without a
+  full named-pipe round trip. Covers: no threshold set, percentage at/above threshold, count
+  at/above threshold, count-threshold counting distinct uids not folded results, and
+  percentage/count mutual exclusivity. PR branch: test-assist/retry-threshold-policy-tests.
+  `Microsoft.Testing.Extensions.UnitTests` net9.0: 1883 total / 1846 passed / 37 skipped
+  (pre-existing) / 0 failed, up from 1876 baseline (+7 new, all passing). `-warnaserror`
+  build clean; `dotnet format whitespace --verify-no-changes` clean.
+  LESSON LEARNED: `IRequest` (in `Microsoft.Testing.Platform.IPC`) is `internal`, and even
+  though `InternalsVisibleTo` grants access, the test project has no direct
+  `ProjectReference` to `Microsoft.Testing.Platform.csproj` (only to
+  `Microsoft.Testing.Extensions.Retry.csproj`, which references it transitively) — referencing
+  the `IRequest` type name directly in a method signature failed with CS0246 even though the
+  type resolves fine when only used as an argument value (implicit reference via the
+  `FailedTestRequest`/`TestRunCountsRequest` types already used elsewhere). Fixed by typing the
+  reflection helper's parameter as `object` instead of `IRequest`.
+
+- 2026-09-27: Verified via `pull_request_read` (`method: "get"`, `method: "get_status"`,
+  `method: "get_check_runs"`, `method: "get_comments"`) that all 8 sampled open test-improver
+  PRs (#32, #28, #25, #22, #19, #17, #13, #10) are still open/draft, `mergeable_state:
+  "unstable"`, with `get_status`/`get_check_runs` both reporting zero checks configured (no CI
+  pipeline runs against these PRs in this environment) and `get_comments` returning empty (no
+  human feedback yet). No PR-maintenance action was needed or taken this run.
+  CONFIRMED WORKAROUND: `pull_request_read` requires an explicit `--method`/`"method"` param
+  (e.g. `"get"`) — omitting it returns `{"text":"missing required parameter: method", ...}`
+  wrapped in `isError:true` inside `content[0].text`, NOT a top-level error, so a naive
+  `d[0].get(...)` on the raw response silently returns `None`/empty without raising. Always
+  check `d[0].get('isError')` and parse `content[0].text` on failure. Same applies to
+  `issue_read` (also requires `--method "get"` explicitly).
+- 2026-09-27: Confirmed (again) that `search_issues`/`list_issues` MCP calls return empty
+  results in this sandbox; used `issue_read --method get` on sequential issue numbers instead.
+  Issues #1-#3 integrity-filtered as before; #4-#5 closed unrelated bug-fix issues; #6-#33 are
+  all pull requests (test/perf/efficiency-improver + 1 docs PR); issue #34+ returns 404 (does
+  not exist). No `[test-improver] Monthly Activity` issue existed for September despite a
+  2026-09-25 memory entry claiming one was created — that create_issue call apparently did not
+  land (2nd time this has happened; consider verifying issue creation succeeded via a
+  follow-up `issue_read` in a future run before recording it as done in memory). Created
+  `[test-improver] Monthly Activity 2026-09` fresh this run with the full Suggested Actions
+  list (PRs #10-#33 plus the new RetryThresholdPolicy PR) and a fresh Run History.
+- Next run: pivot Task 3 target toward other `Microsoft.Testing.Extensions.*` projects
+  (HtmlReport, JUnitReport, CtrfReport, TrxReport) or `src/TestFramework/`
+  `Attributes/DataSource/` for untested internal helpers with real logic testable on Linux.
+  Also worth a follow-up `issue_read` next run to confirm the Monthly Activity issue this run
+  actually created landed (given the repeated apparent `create_issue` silent-failure pattern).
