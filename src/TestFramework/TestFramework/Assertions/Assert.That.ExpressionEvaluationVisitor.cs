@@ -85,7 +85,7 @@ public static partial class AssertExtensions
                     Expression rebuiltAssignLeft = ReplaceSubExpressionsWithConstants(binaryExpr.Left, cache);
                     Expression rebuiltAssignRight = ReplaceChildWithConstant(binaryExpr.Right, cache);
                     BinaryExpression rebuiltAssign = binaryExpr.Update(rebuiltAssignLeft, binaryExpr.Conversion, rebuiltAssignRight);
-                    object? assignResult = Expression.Lambda(rebuiltAssign).Compile().DynamicInvoke();
+                    object? assignResult = CompileForSingleInvocation(Expression.Lambda(rebuiltAssign)).DynamicInvoke();
                     cache[binaryExpr] = assignResult;
                     cache[binaryExpr.Left] = assignResult;
                     return;
@@ -118,7 +118,7 @@ public static partial class AssertExtensions
                     EvaluateAssignmentTargetSubChildren(unaryExpr.Operand, cache);
                     Expression rebuiltUnaryOperand = ReplaceSubExpressionsWithConstants(unaryExpr.Operand, cache);
                     UnaryExpression rebuiltUnary = unaryExpr.Update(rebuiltUnaryOperand);
-                    object? unaryResult = Expression.Lambda(rebuiltUnary).Compile().DynamicInvoke();
+                    object? unaryResult = CompileForSingleInvocation(Expression.Lambda(rebuiltUnary)).DynamicInvoke();
                     cache[unaryExpr] = unaryResult;
                     if (unaryExpr.NodeType is ExpressionType.PreIncrementAssign or ExpressionType.PreDecrementAssign)
                     {
@@ -257,14 +257,14 @@ public static partial class AssertExtensions
 
                 // Evaluate the replaced expression - this is now safe because all sub-expressions
                 // that could have side effects have been replaced with their constant values.
-                object? result = Expression.Lambda(replacedExpr).Compile().DynamicInvoke();
+                object? result = CompileForSingleInvocation(Expression.Lambda(replacedExpr)).DynamicInvoke();
                 cache[expr] = result;
             }
             else
             {
                 // This is a leaf expression (no children to evaluate).
                 // Evaluate it directly and cache the result.
-                object? result = Expression.Lambda(expr).Compile().DynamicInvoke();
+                object? result = CompileForSingleInvocation(Expression.Lambda(expr)).DynamicInvoke();
                 cache[expr] = result;
             }
         }
@@ -277,4 +277,18 @@ public static partial class AssertExtensions
             cache[expr] = FailedToEvaluateSentinel;
         }
     }
+
+    /// <summary>
+    /// Compiles a non-generic lambda for exactly one invocation via <see cref="Delegate.DynamicInvoke"/>.
+    /// Prefers the expression-tree interpreter over Reflection.Emit/JIT compilation, since the emitted
+    /// delegate here is always invoked once (on the failure-diagnostic path) and then discarded.
+    /// </summary>
+    private static Delegate CompileForSingleInvocation(LambdaExpression lambda) =>
+#if NET462 || NET48
+        // The Compile(bool preferInterpretation) overload isn't available in the .NET Framework
+        // reference assemblies this repo builds against; fall back to the default JIT-compiling overload.
+        lambda.Compile();
+#else
+        lambda.Compile(preferInterpretation: true);
+#endif
 }

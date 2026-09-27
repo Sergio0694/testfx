@@ -66,13 +66,13 @@ public static partial class AssertExtensions
         {
             // Rebuild with the cached Left so a user-supplied Conversion still runs.
             Expression rebuilt = ReplaceSubExpressionsWithConstants(binaryExpr, cache);
-            cache[binaryExpr] = Expression.Lambda(rebuilt).Compile().DynamicInvoke();
+            cache[binaryExpr] = CompileForSingleInvocation(Expression.Lambda(rebuilt)).DynamicInvoke();
             return true;
         }
 
         EvaluateAllSubExpressions(binaryExpr.Right, cache);
         Expression rebuiltWithRight = ReplaceSubExpressionsWithConstants(binaryExpr, cache);
-        cache[binaryExpr] = Expression.Lambda(rebuiltWithRight).Compile().DynamicInvoke();
+        cache[binaryExpr] = CompileForSingleInvocation(Expression.Lambda(rebuiltWithRight)).DynamicInvoke();
         return true;
     }
 
