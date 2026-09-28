@@ -180,29 +180,64 @@ public sealed class DynamicDataAttribute : Attribute, ITestDataSource, ITestData
             : GetDisplayNameByReflection(dynamicDisplayNameDeclaringType, DynamicDataDisplayName, methodInfo, data);
     }
 
+    // Caches the resolved and shape-validated display-name method per (declaring type, method name) pair.
+    // Without this, every data row of a [DynamicData(..., DynamicDataDisplayName = "...")] test in
+    // reflection mode (no source generator registration) would redo GetDeclaredMethod + GetParameters +
+    // validation for the exact same method, once per row.
+    private static readonly ConcurrentDictionary<DisplayNameMethodKey, MethodInfo> DisplayNameMethodCache = new();
+
     private static string? GetDisplayNameByReflection([DynamicallyAccessedMembers(DynamicDataOperations.RequiredMemberTypes)] Type dynamicDisplayNameDeclaringType, string displayNameMethodName, MethodInfo methodInfo, object?[]? data)
+    {
+        MethodInfo method = DisplayNameMethodCache.GetOrAdd(
+            new DisplayNameMethodKey(dynamicDisplayNameDeclaringType, displayNameMethodName),
+            static key => ResolveDisplayNameMethod(key.DeclaringType, key.MethodName));
+
+        // Try to get the display name from the method.
+        return method.Invoke(null, [methodInfo, data]) as string;
+    }
+
+    private static MethodInfo ResolveDisplayNameMethod([DynamicallyAccessedMembers(DynamicDataOperations.RequiredMemberTypes)] Type dynamicDisplayNameDeclaringType, string displayNameMethodName)
     {
         MethodInfo method = dynamicDisplayNameDeclaringType.GetTypeInfo().GetDeclaredMethod(displayNameMethodName)
             ?? throw new ArgumentNullException($"{DynamicDataSourceType.Method} {displayNameMethodName}");
         ParameterInfo[] parameters = method.GetParameters();
-        if (parameters.Length != 2
+        return parameters.Length != 2
             || parameters[0].ParameterType != typeof(MethodInfo)
             || parameters[1].ParameterType != typeof(object[])
             || method.ReturnType != typeof(string)
             || !method.IsStatic
-            || !method.IsPublic)
-        {
-            throw new ArgumentNullException(
+            || !method.IsPublic
+            ? throw new ArgumentNullException(
                 string.Format(
                     CultureInfo.InvariantCulture,
                     FrameworkMessages.DynamicDataDisplayName,
                     displayNameMethodName,
                     nameof(String),
-                    string.Join(", ", nameof(MethodInfo), typeof(object[]).Name)));
+                    string.Join(", ", nameof(MethodInfo), typeof(object[]).Name)))
+            : method;
+    }
+
+    private readonly struct DisplayNameMethodKey : IEquatable<DisplayNameMethodKey>
+    {
+        public DisplayNameMethodKey([DynamicallyAccessedMembers(DynamicDataOperations.RequiredMemberTypes)] Type declaringType, string methodName)
+        {
+            DeclaringType = declaringType;
+            MethodName = methodName;
         }
 
-        // Try to get the display name from the method.
-        return method.Invoke(null, [methodInfo, data]) as string;
+        [DynamicallyAccessedMembers(DynamicDataOperations.RequiredMemberTypes)]
+        public Type DeclaringType { get; }
+
+        public string MethodName { get; }
+
+        public bool Equals(DisplayNameMethodKey other)
+            => DeclaringType == other.DeclaringType && string.Equals(MethodName, other.MethodName, StringComparison.Ordinal);
+
+        public override bool Equals(object? obj)
+            => obj is DisplayNameMethodKey other && Equals(other);
+
+        public override int GetHashCode()
+            => (DeclaringType.GetHashCode() * 397) ^ MethodName.GetHashCode();
     }
 
     /// <inheritdoc />
