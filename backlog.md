@@ -242,3 +242,5 @@
   `Attributes/DataSource/` for untested internal helpers with real logic testable on Linux.
   Also worth a follow-up `issue_read` next run to confirm the Monthly Activity issue this run
   actually created landed (given the repeated apparent `create_issue` silent-failure pattern).
+
+- 2026-10-05: Run paused new PRs (8+ open, no feedback); created Oct Monthly Activity issue. Verify it landed next run.
