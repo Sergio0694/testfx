@@ -291,9 +291,33 @@ internal static class JUnitReportMerger
             foreach (XElement testCase in retrySuite.Tests)
             {
                 mergedSuite.Add(testCase);
-                failures += testCase.Elements().Any(element => element.Name.LocalName == "failure") ? 1 : 0;
-                errors += testCase.Elements().Any(element => element.Name.LocalName == "error") ? 1 : 0;
-                skipped += testCase.Elements().Any(element => element.Name.LocalName == "skipped") ? 1 : 0;
+
+                // Single pass over the test case's children instead of three separate Elements().Any()
+                // scans: each Any() call re-enumerates the same child list, so this collapses O(3n) child
+                // visits (and their closure allocations) into O(n) per test case.
+                bool hasFailure = false;
+                bool hasError = false;
+                bool hasSkipped = false;
+                foreach (XElement child in testCase.Elements())
+                {
+                    string localName = child.Name.LocalName;
+                    if (localName == "failure")
+                    {
+                        hasFailure = true;
+                    }
+                    else if (localName == "error")
+                    {
+                        hasError = true;
+                    }
+                    else if (localName == "skipped")
+                    {
+                        hasSkipped = true;
+                    }
+                }
+
+                failures += hasFailure ? 1 : 0;
+                errors += hasError ? 1 : 0;
+                skipped += hasSkipped ? 1 : 0;
                 time += ReadDouble(testCase, "time");
             }
 
