@@ -32,8 +32,22 @@ public static partial class AssertExtensions
         // cached as the failure sentinel, then the rebuilt parent could not be evaluated either).
         // Re-invoke the original lambda so the user sees the actual exception thrown by their
         // assertion code rather than an unrelated InvalidCastException from the sentinel.
-        return Expression.Lambda<Func<bool>>(expr).Compile().Invoke();
+        return CompileForSingleInvocation(expr).Invoke();
     }
+
+    /// <summary>
+    /// Compiles a boolean-returning lambda for exactly one invocation. Prefers the expression-tree
+    /// interpreter over Reflection.Emit/JIT compilation, since the emitted delegate here is always
+    /// invoked once (on the failure-diagnostic path) and then discarded.
+    /// </summary>
+    private static Func<bool> CompileForSingleInvocation(Expression expr) =>
+#if NET462 || NET48
+        // The Compile(bool preferInterpretation) overload isn't available in the .NET Framework
+        // reference assemblies this repo builds against; fall back to the default JIT-compiling overload.
+        Expression.Lambda<Func<bool>>(expr).Compile();
+#else
+        Expression.Lambda<Func<bool>>(expr).Compile(preferInterpretation: true);
+#endif
 
     private static bool RequiresSinglePassEvaluation(Expression expr)
         => expr switch
